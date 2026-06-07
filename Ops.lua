@@ -1405,7 +1405,10 @@ PickupFruitToggle:OnChanged(function(state)
         while _G.AutoPickupFruit do
             for _, child in ipairs(workspace:GetChildren()) do
                 if not _G.AutoPickupFruit then break end
-                if isRareItem(child.Name) then longRangePickup(child) end
+                if isRareItem(child.Name) then
+                    task.wait(0.2)
+                    longRangePickup(child)
+                end
             end
             task.wait()
         end
