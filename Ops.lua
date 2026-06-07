@@ -1144,6 +1144,7 @@ local function scanForRares()
 end
 
 -- Toggle สแกนผลแร (แจ้งทุก 2 วิ + แจ้งตอนหาย)
+_G.AutoRareAlert = false
 local previousRares = {} -- เก็บของที่เจอรอบก่อน
 
 local function getCurrentRares()
@@ -1171,44 +1172,47 @@ local function getCurrentRares()
     return current
 end
 
--- Webhooks เปิดอัตโนมัติตลอด
-_G.AutoRareAlert = true
-task.spawn(function()
-    while _G.AutoRareAlert do
-        local current = getCurrentRares()
-        local joinCmd = "```\ngame:GetService(\"ReplicatedStorage\").__ServerBrowser:InvokeServer(\"teleport\", \"" .. game.JobId .. "\")\n```"
-        for _, item in ipairs(current) do
-            local color = item.rarity == "Ultra Rare" and 16711680 or 16776960
-            local icon = item.type == "box" and "📦" or "🍎"
-            local status = item.type == "box" and "ยังไม่เปิด (กล่อง)" or "ผล (เปิดแล้ว)"
-            if item.location == "player" then
-                sendDiscordAlert("ระดับ: " .. item.rarity, icon .. " **" .. item.name .. "!**\n**สถานะ:** " .. status .. "\n**อยู่ในตัว:** " .. item.owner .. "\n**ID:** `" .. item.id .. "`\n**Job-Id:** `" .. game.JobId .. "`\n**จอยเซิฟ:**\n" .. joinCmd, color)
-            else
-                sendDiscordAlert("ระดับ: " .. item.rarity, icon .. " **" .. item.name .. " บนพื้น!**\n**สถานะ:** " .. status .. "\n**อยู่:** บนพื้น\n**Job-Id:** `" .. game.JobId .. "`\n**จอยเซิฟ:**\n" .. joinCmd, color)
-            end
-        end
-
-        -- เช็คของที่หายไป
-        for _, prev in ipairs(previousRares) do
-            local stillExists = false
-            for _, cur in ipairs(current) do
-                if cur.name == prev.name and cur.owner == prev.owner then
-                    stillExists = true
-                    break
+local RareAlertToggle = Tabs.Alert:AddToggle("AutoRareAlert", { Title = "Webhooks", Default = false })
+RareAlertToggle:OnChanged(function(state)
+    _G.AutoRareAlert = state
+    if not state then previousRares = {} return end
+    task.spawn(function()
+        while _G.AutoRareAlert do
+            local current = getCurrentRares()
+            local joinCmd = "```\ngame:GetService(\"ReplicatedStorage\").__ServerBrowser:InvokeServer(\"teleport\", \"" .. game.JobId .. "\")\n```"
+            for _, item in ipairs(current) do
+                local color = item.rarity == "Ultra Rare" and 16711680 or 16776960
+                local icon = item.type == "box" and "📦" or "🍎"
+                local status = item.type == "box" and "ยังไม่เปิด (กล่อง)" or "ผล (เปิดแล้ว)"
+                if item.location == "player" then
+                    sendDiscordAlert("ระดับ: " .. item.rarity, icon .. " **" .. item.name .. "!**\n**สถานะ:** " .. status .. "\n**อยู่ในตัว:** " .. item.owner .. "\n**ID:** `" .. item.id .. "`\n**Job-Id:** `" .. game.JobId .. "`\n**จอยเซิฟ:**\n" .. joinCmd, color)
+                else
+                    sendDiscordAlert("ระดับ: " .. item.rarity, icon .. " **" .. item.name .. " บนพื้น!**\n**สถานะ:** " .. status .. "\n**อยู่:** บนพื้น\n**Job-Id:** `" .. game.JobId .. "`\n**จอยเซิฟ:**\n" .. joinCmd, color)
                 end
             end
-            if not stillExists then
-                sendDiscordAlert(
-                    "❌ ผลหายไปแล้ว!",
-                    "**" .. prev.name .. "** หายไปจาก **" .. (prev.owner ~= "" and prev.owner or "พื้น") .. "**\nอาจถูกเก็บใส่ช่องเก็บผล หรือโดนกินไป",
-                    8421504
-                )
-            end
-        end
 
-        previousRares = current
-        task.wait(2)
-    end
+            -- เช็คของที่หายไป
+            for _, prev in ipairs(previousRares) do
+                local stillExists = false
+                for _, cur in ipairs(current) do
+                    if cur.name == prev.name and cur.owner == prev.owner then
+                        stillExists = true
+                        break
+                    end
+                end
+                if not stillExists then
+                    sendDiscordAlert(
+                        "❌ ผลหายไปแล้ว!",
+                        "**" .. prev.name .. "** หายไปจาก **" .. (prev.owner ~= "" and prev.owner or "พื้น") .. "**\nอาจถูกเก็บใส่ช่องเก็บผล หรือโดนกินไป",
+                        8421504
+                    )
+                end
+            end
+
+            previousRares = current
+            task.wait(2)
+        end
+    end)
 end)
 
 -- Toggle Esc มองทะลุคนถือผลแร
